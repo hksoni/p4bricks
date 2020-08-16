@@ -1,3 +1,12 @@
+# P4Bricks
+
+This is an archived repository having incomplete implementation of the P4Bricks 
+project. If you are interested in this line of work, you should look at 
+[μP4](https://github.com/cornell-netlab/MicroP4) 
+
+
+
+
 # BEHAVIORAL MODEL REPOSITORY
 
 [![Build Status](https://travis-ci.org/p4lang/behavioral-model.svg?branch=master)](https://travis-ci.org/p4lang/behavioral-model)
