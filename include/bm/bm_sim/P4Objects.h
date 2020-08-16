@@ -61,6 +61,11 @@ namespace bm {
 using ConfigOptionMap = std::unordered_map<std::string, std::string>;
 
 class P4Objects {
+  // Linker needs access to modify and replace the P4Objects
+  // HS
+  friend class Linker;
+  friend class P4ObjectsLinkerExt;
+  friend class LinkParsers;
  public:
   using header_field_pair = std::pair<std::string, std::string>;
 

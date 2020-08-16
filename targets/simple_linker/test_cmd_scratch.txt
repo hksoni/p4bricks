@@ -1,0 +1,10 @@
+sudo python ./mininet/1sw_test.py --behavioral-exe ../targets/simple_switch/simple_switch  --json ../targets/simple_router/simple_router.json
+
+
+p4_program_config_add l3router ./targets/simple_router/simple_router.json
+
+
+
+sudo python ~/bmv2-hksoni/mininet/1sw_test.py --behavioral-exe ./simple_linker --json  ./tests/input-jsons/enterprise.json
+p4_program_config_add dc tests/input-jsons/dc.json
+

@@ -1,0 +1,1 @@
+./configure --enable-debugger --with-thrift --with-nanomsg CXXFLAGS=-O0 -g

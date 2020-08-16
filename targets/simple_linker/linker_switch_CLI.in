@@ -1,0 +1,17 @@
+#!/usr/bin/env python2
+
+
+#
+# Hardik Soni (hardik.soni@inria.fr)
+#
+#
+
+# This is just a wrapper script around sswitch_CLI.py
+# It makes sure that the script works correctly no matter where Python
+# dependencies are installed
+
+import sys
+sys.path.append("/usr/local/lib/python2.7/dist-packages")
+
+import lswitch_CLI
+lswitch_CLI.main()

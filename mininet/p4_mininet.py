@@ -63,13 +63,13 @@ class P4Switch(Switch):
                  **kwargs):
         Switch.__init__(self, name, **kwargs)
         assert(sw_path)
-        assert(json_path)
+        # assert(json_path)
         # make sure that the provided sw_path is valid
         pathCheck(sw_path)
         # make sure that the provided JSON file exists
-        if not os.path.isfile(json_path):
-            error("Invalid JSON file.\n")
-            exit(1)
+        #if not os.path.isfile(json_path):
+        #    error("Invalid JSON file.\n")
+        #    exit(1)
         self.sw_path = sw_path
         self.json_path = json_path
         self.verbose = verbose
@@ -121,12 +121,18 @@ class P4Switch(Switch):
             args.extend(['--nanolog', self.nanomsg])
         args.extend(['--device-id', str(self.device_id)])
         P4Switch.device_id += 1
-        args.append(self.json_path)
+        if not self.json_path:
+            args.append("--no-p4")
+        else:
+            args.append(self.json_path)
         if self.enable_debugger:
             args.append("--debugger")
         if self.log_console:
             args.append("--log-console")
-        logfile = "/tmp/p4s.{}.log".format(self.name)
+        logfile = "/tmp/p4s.{}.out.log".format(self.name)
+        sw_logfile = "/tmp/p4s.{}.log".format(self.name)
+        args.append("--log-flush")
+        args.extend(["--log-file", sw_logfile])
         info(' '.join(args) + "\n")
 
         pid = None

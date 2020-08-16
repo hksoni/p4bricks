@@ -828,7 +828,10 @@ class SwitchWContexts : public DevMgr, public RuntimeInterface {
   int deserialize_from_file(const std::string &state_dump_path);
 
  private:
-  int init_objects(std::istream *is, int dev_id,
+  //! LinkerSwitch:
+  //! virtuality gives possible control to intercept the init calls in linker
+  //! LinkerSwitch overrides it
+  virtual int init_objects_(std::istream *is, int dev_id,
                    std::shared_ptr<TransportIface> transport);
 
   void reset_target_state();
@@ -848,16 +851,30 @@ class SwitchWContexts : public DevMgr, public RuntimeInterface {
   //! simple_switch target uses this to reset PRE state.
   virtual void reset_target_state_() { }
 
- private:
+ protected:
   size_t nb_cxts{};
+
+  std::unique_ptr<PHVSourceIface> phv_source{nullptr};
+
   // TODO(antonin)
   // Context is not-movable, but is default-constructible, so I can put it in a
   // std::vector
   std::vector<Context> contexts{};
 
+  // same transport used for all notifications, irrespective of the thread, made
+  // possible by multi-threading support in nanomsg
+  std::string notifications_addr{};
+  std::shared_ptr<TransportIface> notifications_transport{nullptr};
+
+  int device_id{};
+
   LookupStructureFactory *get_lookup_factory() const {
     return lookup_factory ? lookup_factory.get() : &default_lookup_factory;
   }
+
+  std::set<header_field_pair> required_fields{};
+  ForceArith arith_objects{};
+ private:
 
   // internal version of get_config_md5(), which does not acquire config_lock
   std::string get_config_md5_() const;
@@ -870,22 +887,11 @@ class SwitchWContexts : public DevMgr, public RuntimeInterface {
 
   bool enable_swap{false};
 
-  std::unique_ptr<PHVSourceIface> phv_source{nullptr};
-
   std::unordered_map<std::type_index, std::shared_ptr<void> > components{};
-
-  std::set<header_field_pair> required_fields{};
-  ForceArith arith_objects{};
 
   int thrift_port{};
 
-  int device_id{};
-
-  // same transport used for all notifications, irrespective of the thread, made
-  // possible by multi-threading support in nanomsg
-  std::string notifications_addr{};
-  std::shared_ptr<TransportIface> notifications_transport{nullptr};
-
+ private: 
   mutable boost::shared_mutex ongoing_swap_mutex{};
 
   std::string current_config{"{}"};  // empty JSON config

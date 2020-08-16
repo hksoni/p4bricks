@@ -82,6 +82,11 @@ py-compile
 
 *.ts
 
+# vim temps
+*.swo
+*.swp
+*.swn
+
 # gcov
 *.gcno
 *.gcda

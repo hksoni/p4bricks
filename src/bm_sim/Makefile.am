@@ -78,3 +78,9 @@ xxhash.h
 
 libbmsim_la_SOURCES += \
 core/primitives.cpp
+
+libbmsim_la_SOURCES += \
+linker/link_headers.cpp \
+linker/p4objects_linker_ext.cpp \
+linker/link_parsers.cpp \
+linker/linker.cpp

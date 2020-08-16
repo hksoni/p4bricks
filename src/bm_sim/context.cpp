@@ -27,6 +27,9 @@
 namespace bm {
 
 Context::Context() {
+  //! LinkerSwitch:
+  // init_objects with std::make_shared<P4Objects> as an argument takes care of
+  // this in LinkerSwitch, but left initialized to not to break other targets
   p4objects = std::make_shared<P4Objects>(std::cout, true);
   p4objects_rt = p4objects;
 }
@@ -732,6 +735,21 @@ Context::init_objects(std::istream *is,
     get_phv_factory().enable_all_arith();
   return 0;
 }
+
+//! LinkerSwitch:
+//! Initializes already parsed p4objects
+//! --HS
+int 
+Context::init_objects(std::shared_ptr<P4Objects> p4objs) {
+  boost::unique_lock<boost::shared_mutex> lock(request_mutex);
+  p4objects_rt = p4objs;
+  p4objects = p4objs;
+  // force_arith is set by SwitchWContexts::init_from_options_parser
+  if (force_arith)
+    get_phv_factory().enable_all_arith();
+  return ErrorCode::SUCCESS;
+}
+
 
 Context::ErrorCode
 Context::load_new_config(

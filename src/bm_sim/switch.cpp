@@ -48,8 +48,8 @@ packet_handler(int port_num, const char *buffer, int len, void *cookie) {
 // TODO(antonin): maybe a factory method would be more appropriate for Switch
 SwitchWContexts::SwitchWContexts(size_t nb_cxts, bool enable_swap)
   : DevMgr(),
-    nb_cxts(nb_cxts), contexts(nb_cxts), enable_swap(enable_swap),
-    phv_source(PHVSourceIface::make_phv_source(nb_cxts)) {
+    nb_cxts(nb_cxts), phv_source(PHVSourceIface::make_phv_source(nb_cxts)),
+    contexts(nb_cxts), enable_swap(enable_swap) {
   for (size_t i = 0; i < nb_cxts; i++) {
     contexts.at(i).set_cxt_id(i);
   }
@@ -127,7 +127,7 @@ SwitchWContexts::force_arith_header(const std::string &header_name) {
 }
 
 int
-SwitchWContexts::init_objects(std::istream *is, int dev_id,
+SwitchWContexts::init_objects_(std::istream *is, int dev_id,
                               std::shared_ptr<TransportIface> transport) {
   int status = 0;
 
@@ -166,7 +166,7 @@ SwitchWContexts::init_objects(const std::string &json_path, int dev_id,
     return 1;
   }
 
-  int status = init_objects(&fs, dev_id, transport);
+  int status = init_objects_(&fs, dev_id, transport);
   if (status != 0) return status;
 
   {
@@ -182,7 +182,7 @@ SwitchWContexts::init_objects(const std::string &json_path, int dev_id,
 int
 SwitchWContexts::init_objects_empty(int dev_id,
                                     std::shared_ptr<TransportIface> transport) {
-  return init_objects(nullptr, dev_id, transport);
+  return init_objects_(nullptr, dev_id, transport);
 }
 
 int

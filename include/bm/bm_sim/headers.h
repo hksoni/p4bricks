@@ -41,6 +41,7 @@ class ArithExpression;
 class HeaderUnion;
 
 class HeaderType : public NamedP4Object {
+  friend class HeaderTypeUIDTable;
  public:
   // do not specify custome values for enum entries, the value is used directly
   // as an offset...

@@ -400,6 +400,13 @@ class Context final {
   Context(const Context &other) = delete;
   Context &operator=(const Context &other) = delete;
 
+ public:
+  void set_notifications_transport(std::shared_ptr<TransportIface> transport);
+
+  void set_device_id(int device_id);
+
+  PHVFactory &get_phv_factory();
+
  private:
   MatchErrorCode get_mt_indirect(const std::string &table_name,
                                  MatchTableIndirect **table) const;
@@ -411,15 +418,9 @@ class Context final {
     return p4objects->field_exists(header_name, field_name);
   }
 
-  PHVFactory &get_phv_factory();
-
   LearnEngineIface *get_learn_engine();
 
   AgeingMonitorIface *get_ageing_monitor();
-
-  void set_notifications_transport(std::shared_ptr<TransportIface> transport);
-
-  void set_device_id(int device_id);
 
   void set_cxt_id(int cxt_id);
 
@@ -433,6 +434,13 @@ class Context final {
                      std::set<header_field_pair>(),
                    const ForceArith &arith_objects = ForceArith());
 
+ public:
+  //! LinkerSwitch
+  //! Initializes already parsed p4objects
+  //! --HS
+  int init_objects(std::shared_ptr<P4Objects> p4objs);
+
+ private:  
   ErrorCode load_new_config(
       std::istream *is,
       LookupStructureFactory * lookup_factory,

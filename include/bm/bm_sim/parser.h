@@ -35,6 +35,8 @@
 #include "named_p4object.h"
 #include "stateful.h"
 #include "parser_error.h"
+#include "expressions.h"
+#include "actions.h"
 
 namespace bm {
 
@@ -76,6 +78,187 @@ struct ParserOp {
                           size_t *bytes_parsed) const = 0;
 };
 
+
+//! LinkerSwitch: brought here from source file
+///////////////////////////////////////////////////////////////////////////////
+struct ParserOpExtract : ParserOp {
+  header_id_t header;
+
+  explicit ParserOpExtract(header_id_t header)
+    : header(header) {}
+
+  void operator()(Packet *pkt, const char *data,
+                  size_t *bytes_parsed) const override;
+    /*
+  {
+    auto phv = pkt->get_phv();
+    auto &hdr = phv->get_header(header);
+    BMELOG(parser_extract, *pkt, header);
+    BMLOG_DEBUG_PKT(*pkt, "Extracting header '{}'", hdr.get_name());
+    check_enough_data_for_extract(*pkt, *bytes_parsed, hdr);
+    hdr.extract(data, *phv);
+    *bytes_parsed += hdr.get_nbytes_packet();
+  }
+  */
+};
+
+struct ParserOpExtractVL : ParserOp {
+  header_id_t header;
+  ArithExpression field_length_expr;
+  size_t max_header_bytes;
+
+  explicit ParserOpExtractVL(header_id_t header,
+                             const ArithExpression &field_length_expr,
+                             size_t max_header_bytes)
+      : header(header), field_length_expr(field_length_expr),
+        max_header_bytes(max_header_bytes) { }
+
+  void operator()(Packet *pkt, const char *data,
+                  size_t *bytes_parsed) const override ;
+  /*{
+    auto phv = pkt->get_phv();
+    auto &hdr = phv->get_header(header);
+    assert(hdr.is_VL_header());
+
+    static thread_local Data computed_nbits;
+    field_length_expr.eval(*phv, &computed_nbits);
+
+    BMELOG(parser_extract, *pkt, header);
+    BMLOG_DEBUG_PKT(*pkt, "Extracting variable-sized header '{}'",
+                    hdr.get_name());
+    auto nbits = computed_nbits.get<int>();
+    // TODO(antonin): temporary limitation?
+    assert(nbits % 8 == 0 && "VL field bitwidth needs to be a multiple of 8");
+    // get_nbytes_packet counts the VL field in the header as 0 bits
+    auto bytes_to_extract = static_cast<size_t>(
+        hdr.get_nbytes_packet() + nbits / 8);
+    if (pkt->get_ingress_length() - *bytes_parsed < bytes_to_extract)
+      throw parser_exception_core(ErrorCodeMap::Core::PacketTooShort);
+
+    if (max_header_bytes != 0 && max_header_bytes < bytes_to_extract)
+      throw parser_exception_core(ErrorCodeMap::Core::HeaderTooShort);
+
+    hdr.extract_VL(data, nbits);
+    // get_nbytes_packet now returns a value that includes the VL field bitwidth
+    *bytes_parsed += hdr.get_nbytes_packet();
+  }
+  */
+};
+
+// push back a header on a tag stack
+// TODO(antonin): probably room for improvement here
+struct ParserOpExtractStack : ParserOp {
+  header_stack_id_t header_stack;
+
+  explicit ParserOpExtractStack(header_stack_id_t header_stack)
+      : header_stack(header_stack) { }
+
+  void operator()(Packet *pkt, const char *data,
+                  size_t *bytes_parsed) const override;
+  /*{
+    auto phv = pkt->get_phv();
+    auto &stack = phv->get_header_stack(header_stack);
+    if (stack.is_full())
+      throw parser_exception_core(ErrorCodeMap::Core::StackOutOfBounds);
+    auto &next_hdr = stack.get_next();
+    BMELOG(parser_extract, *pkt, next_hdr.get_id());
+    BMLOG_DEBUG_PKT(*pkt, "Extracting to header stack {}, next header is {}",
+                    header_stack, next_hdr.get_id());
+    check_enough_data_for_extract(*pkt, *bytes_parsed, next_hdr);
+    next_hdr.extract(data, *phv);
+    *bytes_parsed += next_hdr.get_nbytes_packet();
+    // should I have a HeaderStack::extract() method instead?
+    stack.push_back();
+  }
+  */
+};
+
+struct ParserOpExtractUnionStack : ParserOp {
+  header_union_stack_id_t header_union_stack;
+  size_t header_offset;
+
+  explicit ParserOpExtractUnionStack(header_union_stack_id_t header_union_stack,
+                                     size_t header_offset)
+      : header_union_stack(header_union_stack), header_offset(header_offset) { }
+
+  void operator()(Packet *pkt, const char *data,
+                  size_t *bytes_parsed) const override;
+  /*{
+    auto phv = pkt->get_phv();
+    auto &union_stack = phv->get_header_union_stack(header_union_stack);
+    if (union_stack.is_full())
+      throw parser_exception_core(ErrorCodeMap::Core::StackOutOfBounds);
+    auto &next_union = union_stack.get_next();
+    auto &next_hdr = next_union.at(header_offset);
+    BMELOG(parser_extract, *pkt, next_hdr.get_id());
+    BMLOG_DEBUG_PKT(*pkt,
+                    "Extracting to header union stack {}, next header is {}",
+                    header_union_stack, next_hdr.get_id());
+    check_enough_data_for_extract(*pkt, *bytes_parsed, next_hdr);
+    next_hdr.extract(data, *phv);
+    *bytes_parsed += next_hdr.get_nbytes_packet();
+    union_stack.push_back();
+  }
+  */
+};
+
+struct ParserOpVerify : ParserOp {
+  BoolExpression condition;
+  ArithExpression error_expr;
+
+  ParserOpVerify(const BoolExpression &condition,
+                 const ArithExpression &error_expr)
+      : condition(condition), error_expr(error_expr) { }
+
+  void operator()(Packet *pkt, const char *data,
+                  size_t *bytes_parsed) const override;
+  /*{
+    (void) data; (void) bytes_parsed;
+    static thread_local Data error;
+    const auto &phv = *pkt->get_phv();
+    if (!condition.eval(phv)) {
+      error_expr.eval(phv, &error);
+      throw parser_exception_arch(ErrorCode(error.get<ErrorCode::type_t>()));
+    }
+  }
+  */
+};
+
+struct ParserOpMethodCall : ParserOp {
+  ActionFnEntry action;
+
+  explicit ParserOpMethodCall(ActionFn *action_fn)
+      : action(action_fn) { }
+
+  void operator()(Packet *pkt, const char *data,
+                  size_t *bytes_parsed) const override ;
+  /*{
+    (void) data; (void) bytes_parsed;
+    BMLOG_DEBUG_PKT(*pkt, "Executing method {}",
+                    action.get_action_fn()->get_name());
+    action.execute(pkt);
+  }
+  */
+};
+
+struct ParserOpShift : ParserOp {
+  size_t shift_bytes;
+
+  explicit ParserOpShift(size_t shift_bytes)
+      : shift_bytes(shift_bytes) { }
+
+  void operator()(Packet *pkt, const char *data,
+                  size_t *bytes_parsed) const override;
+  /*{
+    (void) data;
+    if (pkt->get_ingress_length() - *bytes_parsed < shift_bytes)
+      throw parser_exception_core(ErrorCodeMap::Core::PacketTooShort);
+    *bytes_parsed += shift_bytes;
+  }
+  */
+};
+
+
 // need to be in the header because of unit tests
 template <typename T>
 struct ParserOpSet : ParserOp {
@@ -89,7 +272,11 @@ struct ParserOpSet : ParserOp {
                   size_t *bytes_parsed) const override;
 };
 
+///////////////////////////////////////////////////////////////////////////////
+
+
 class ParseSwitchKeyBuilder {
+  friend class LinkParsers;
  public:
   void push_back_field(header_id_t header, int field_offset, int bitwidth);
 
@@ -221,7 +408,62 @@ class ParseSwitchCaseIface {
                            const ParseState *next_state);
 };
 
+//! LinkerSwitch: brought here from source file
+///////////////////////////////////////////////////////////////////////////////
+
+class ParseSwitchCase : public ParseSwitchCaseIface {
+  friend class LinkParsers;
+  friend class P4ObjectsLinkerExt;
+ public:
+  ParseSwitchCase(const ByteContainer &key, const ParseState *next_state)
+      : key(key), next_state(next_state) { }
+
+  ParseSwitchCase(int nbytes_key, const char *key, const ParseState *next_state)
+      : key(ByteContainer(key, nbytes_key)), next_state(next_state) { }
+
+  bool match(const ByteContainer &input,
+             const ParseState **state) const override;
+
+ private:
+  ByteContainer key;
+  const ParseState *next_state; // NULL if end 
+};
+
+class ParseSwitchCaseWithMask : public ParseSwitchCaseIface {
+  friend class LinkParsers;
+  friend class P4ObjectsLinkerExt;
+ public:
+  ParseSwitchCaseWithMask(const ByteContainer &key,
+                          const ByteContainer &mask,
+                          const ParseState *next_state)
+      : key(key), mask(mask), next_state(next_state) {
+    assert(key.size() == mask.size());
+    mask_key();
+  }
+
+  ParseSwitchCaseWithMask(int nbytes_key, const char *key, const char *mask,
+                          const ParseState *next_state)
+      : key(ByteContainer(key, nbytes_key)),
+        mask(ByteContainer(mask, nbytes_key)),
+        next_state(next_state) {
+    mask_key();
+  }
+
+  bool match(const ByteContainer &input,
+             const ParseState **state) const override;
+
+ private:
+  void mask_key();
+
+  ByteContainer key;
+  ByteContainer mask{};
+  const ParseState *next_state; // NULL if end 
+};
+///////////////////////////////////////////////////////////////////////////////
+
 class ParseState : public NamedP4Object {
+  friend class LinkParsers;
+  friend class P4ObjectsLinkerExt;
  public:
   ParseState(const std::string &name, p4object_id_t id);
 
@@ -302,6 +544,8 @@ class ParseState : public NamedP4Object {
 
 //! Implements a P4 parser.
 class Parser : public NamedP4Object {
+  friend class LinkParsers;
+  friend class P4ObjectsLinkerExt;
  public:
   Parser(const std::string &name, p4object_id_t id,
          const ErrorCodeMap *error_codes);

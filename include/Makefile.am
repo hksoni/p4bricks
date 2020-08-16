@@ -87,3 +87,11 @@ bm/bm_sim/header_unions.h
 
 nobase_include_HEADERS += \
 bm/bm_sim/core/primitives.h
+
+nobase_include_HEADERS += \
+bm/bm_linker/linker_commons.h \
+bm/bm_linker/linker_trace_macro.h \
+bm/bm_linker/link_headers.h \
+bm/bm_linker/p4objects_linker_ext.h \
+bm/bm_linker/linker.h \
+bm/bm_linker/link_parsers.h
